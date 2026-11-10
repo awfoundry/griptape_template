@@ -1,0 +1,907 @@
+# Griptape Nodes: Node Library Template
+
+Hi! Welcome to Griptape Nodes.
+This is a guide to write your own nodes and node library, in order to use in our [Griptape Nodes](https://www.griptapenodes.com/) platform.
+
+## Griptape Nodes Node Development Documentation
+
+For comprehensive guidance on developing custom nodes, refer to these official resources:
+
+### Getting Started Guide
+
+The [Getting Started Guide](https://docs.griptapenodes.com/en/latest/developing_nodes/getting_started/) provides:
+
+- A beginner-friendly introduction to the Griptape Nodes ecosystem
+- Guidance on choosing the right base node type (`DataNode`, `ControlNode`, `SuccessFailureNode`)
+- Minimal working examples to get started quickly
+- Practical information on parameters, traits, and validation
+- Common gotchas and troubleshooting tips
+
+### Comprehensive Node Development Guide
+
+The [Comprehensive Guide](https://docs.griptapenodes.com/en/latest/developing_nodes/comprehensive_guide/) offers:
+
+- In-depth technical reference material
+- Detailed documentation on node base classes and lifecycle callbacks
+- Advanced patterns for async operations
+- Comprehensive examples of parameter types and traits
+- Best practices for UI/UX and error handling
+
+These resources complement the examples in this template and provide the full context you need to build production-quality custom nodes.
+
+## Use this Template
+
+Create your own repository using this GitHub Template. Use the Template button in the top right.
+
+Once you've created your own repository from this template, you need to pull it down to your local machine, or the machine where you are running your Griptape Nodes Engine.
+
+> **Hint**: It's recommended to clone this repository into your Griptape Nodes workspace directory. You can find your workspace directory by running:
+>
+> ```bash
+> gtn config show workspace_directory
+> ```
+>
+> Here's a quick way to navigate to your workspace directory:
+>
+> ```bash
+> cd `gtn config show workspace_directory`
+> ```
+>
+> Finally, clone the repository:
+>
+> ```bash
+> git clone https://github.com/{{ .RepoName }}.git
+> ```
+
+## 🏗️ Setup Your Library
+
+To create your node library and make it importable by other users, please follow the steps below.
+
+1. rename `example_nodes_template` to the name of your library.
+2. Update the `pyproject.toml`:
+   ```
+   [project]
+   name = "<your-library-name>"
+   version = "0.1.0"
+   description = "<your-description>"
+   authors = [
+       {name = "<Your-Name>",email = "<you@example.com>"}
+   ]
+   ```
+
+   Add packages your nodes import at runtime to `[project] dependencies`, but **do not add
+   `griptape-nodes-engine` there**. The engine is the host that loads your library, so listing it
+   as a runtime dependency means installing your library installs a second engine, which can
+   shadow the one that is actually running. It already sits in `[dependency-groups] dev`, where
+   `uv sync` picks it up by default so type checking (and any tests you add) still resolve it.
+
+   Put the engine version your library needs in `engine_version` in your library JSON. That is the
+   value the engine checks when it loads you.
+3. Run `make changelog/init` and commit the result. `CHANGELOG.md` and `changelog.d/` come from the
+   template, so this drops the template's release history and pending entries and points the
+   `[Unreleased]` link at your repo. See [CONTRIBUTING.md](CONTRIBUTING.md#changelog).
+
+Next, we'll create the nodes that will live in your library.
+
+Each node is it's own python file, written in pure python code!
+
+To create nodes for your library, please take a look at our provided examples in the `example_nodes_template` library and follow the steps below.
+
+**Example Nodes:**
+
+- [Age Node (DataNode)](example_nodes_template/age_node.py) - Simple data processing node with numeric input
+- [Camera Angle Picker (DataNode with Custom Widget)](example_nodes_template/camera_angle_picker.py) - Interactive 3D rotation angle picker demonstrating custom widget integration
+- [Create Introduction (ControlNode)](example_nodes_template/create_introduction.py) - Control flow node for text processing
+- [Create Name Node](example_nodes_template/create_name.py) - Basic string manipulation node
+- [OpenAI Chat (ControlNode with Dependencies)](example_nodes_template/openai_chat.py) - Advanced node with external API integration
+- [Pig Latin Converter](example_nodes_template/pig_latin.py) - Text transformation example
+- [Simple Drawing Canvas (DataNode with Canvas Widget)](example_nodes_template/simple_drawing_canvas_node.py) - Canvas-based widget for drawing and image annotation with retina scaling
+- [Strict Mode example nodes](#strict-mode-example-nodes) - Pairs of nodes, one breaking a strict-mode rule and one following it
+
+## 📝 Creating Your Nodes
+
+### Define a file with your node name
+
+Define a `<your-node-name>.py` file in your `<your-library-name>` directory.
+
+### Define the Node Class
+
+There are two different types of Nodes that you could choose to define.
+
+1. **ControlNode**
+   Has Parameters that allow for configuring a control flow. They create the main path of the flow upon run.
+2. **DataNode**
+   Solely has parameters that define and create data values. They can be dependencies of nodes on the main flow, but don't have control inputs/outputs.
+   _You can add ControlParameters to a DataNode if desired to give it the functionality of a ControlNode._
+
+Within your `<your-node-name>.py`.
+Add this import at the top of your file and define your Node or Nodes as a class.
+
+```
+from griptape_nodes.exe_types.node_types import ControlNode, DataNode
+from griptape_nodes.exe_types.core_types import Parameter
+
+# Creating a Control Node
+class <YourNodeName>(ControlNode):
+    pass
+
+# Creating a Data Node
+class <YourNodeName>(DataNode):
+    pass
+```
+
+### Initialize your Node and define your Parameters
+
+Parameters are fields on the node that can be connected to other nodes or set by the user.
+Parameters have many fields that can be configured for their desired behavior.
+Only a couple of the fields are mandatory. The rest are optional.
+
+### Parameter Fields
+
+1. name: `str` The name of the parameter. Must be unique to the node.
+2. tooltip: `str | list[dict]` The description that will appear upon hovering the mouse.
+3. type: `str` _OPTIONAL_ The type of the value in the parameter. If not defined, it will be whatever the python type is.
+4. input*types: `list[str]` \_OPTIONAL* The allowed list of types that can be connected as an INPUT to your parameter.
+5. output*type: `str` \_OPTIONAL* The type that the OUTPUT of your parameter will be.
+6. default*value: Any \_OPTIONAL* A default value for your parameter if it isn't set
+7. tooltip*as_input: `str | list[dict]` \_OPTIONAL* Tooltip on the input port
+8. tooltip*as_property: `str | list[dict]` \_OPTIONAL* Tooltip on the property displapy
+9. tooltip*as_output: `str | list[dict]` \_OPTIONAL* Tooltip on the output port
+10. allowed*modes: `set[ParameterMode]`
+    \_OPTIONAL* The allowed modes.
+    `ParameterMode.INPUT`: Accepts inputs
+    `ParameterMode.OUTPUT`: Sends output
+    `ParameterMode.PROPERTY`: Can be set on the node itself.
+11. ui*options: `dict` \_OPTIONAL* Informs the display of your node.
+12. traits: `set[type[Trait] | Trait]` _OPTIONAL_ Reusable classes that define features on a parameter, including converters and UI options. They are inheritable!
+13. converters: `list[Callable[[Any], Any]]` _OPTIONAL_ Modifies the parameter value after being set if needed.
+14. validators: `list[Callable[[Parameter, Any], None]]` _OPTIONAL_ Validates that the value on the parameter is correct.
+
+### Define Node Method
+
+Nodes have one absolute method that _absolutely_ (haha) must be defined.
+This is the method that is called by the node at runtime when a node executes.
+It completes the function of your node, whether thats creating a string, generating an image, or creating an agent.
+
+```
+def process(self) -> None:
+    pass
+```
+
+### Additional Optional Methods
+
+Nodes have additional methods that can provide functionality at or before runtime (and you can define as many helper functions as you'd like.)
+
+1. Validate Node
+
+```
+def validate_before_node_run(self) -> list[Exception] | None:
+        """Runs on the orchestrator, immediately before this node is dispatched.
+
+        Structural checks only: whether a required value or API key is set, what a parameter declares.
+        Nodes whose heavy dependencies are in `pip_dependencies_exec` can't import them here.
+
+        Returns:
+            A list of exceptions if any arise, or None. Return a `NodeError` for each problem, as described under Error Handling below.
+        """
+```
+
+```
+def validate_in_execution_environment(self) -> list[Exception] | None:
+        """Runs in the process that executes this node, immediately before it processes.
+
+        Execution dependencies are importable here, so checks that need a loaded model or a real
+        input object belong in this method. Inspect only; don't build the thing being checked.
+
+        Returns:
+            A list of exceptions if any arise, or None. Returning exceptions fails the node without running it.
+        """
+```
+
+2. Before setting a value on a parameter
+
+```
+def before_value_set(self, parameter: Parameter, value: Any) -> Any:
+    """Callback when a Parameter's value is ABOUT to be set.
+
+        Custom nodes may elect to override the default behavior by implementing this function in their node code.
+
+        This gives the node an opportunity to perform custom logic before a parameter is set. This may result in:
+        * Further mutating the value that would be assigned to the Parameter
+        * Mutating other Parameters or state within the Node
+
+        If other Parameters are changed, the engine needs a list of which
+        ones have changed to cascade unresolved state.
+
+        Args:
+            parameter: the Parameter on this node that is about to be changed
+            value: the value intended to be set (this has already gone through any converters and validators on the Parameter)
+
+        Returns:
+            The final value to set for the Parameter. This gives the Node logic one last opportunity to mutate the value
+            before it is assigned.
+        """
+```
+
+3. After setting a value on a parameter
+
+```
+def after_value_set(self, parameter: Parameter, value: Any) -> None:
+        """Callback AFTER a Parameter's value was set.
+
+        Custom nodes may elect to override the default behavior by implementing this function in their node code.
+
+        This gives the node an opportunity to perform custom logic after a parameter is set. This may result in
+        changing other Parameters on the node. If other Parameters are changed, the engine needs a list of which
+        ones have changed to cascade unresolved state.
+
+        Args:
+            parameter: the Parameter on this node that was just changed
+            value: the value that was set (already converted, validated, and possibly mutated by the node code)
+
+        Returns:
+            Nothing
+        """
+```
+
+4. Checking if a connections to the node are allowed.
+   The default value is true, but Custom nodes can implement this method however they'd like to control connections.
+
+```
+def allow_incoming_connection(
+        self,
+        source_node: Self,
+        source_parameter: Parameter,
+        target_parameter: Parameter,
+    ) -> bool:
+        """Callback to confirm allowing a Connection coming TO this Node.
+        """
+        return True
+```
+
+```
+def allow_outgoing_connection(
+        self,
+        source_parameter: Parameter,  # noqa: ARG002
+        target_node: Self,  # noqa: ARG002
+        target_parameter: Parameter,  # noqa: ARG002
+    ) -> bool:
+        """Callback to confirm allowing a Connection going OUT of this Node."""
+        return True
+```
+
+5. Callbacks AFTER creating or removing a connection
+
+```
+def after_incoming_connection(
+        self,
+        source_node: Self,  # noqa: ARG002
+        source_parameter: Parameter,  # noqa: ARG002
+        target_parameter: Parameter,  # noqa: ARG002
+    ) -> None:
+        """Callback after a Connection has been established TO this Node."""
+        return
+```
+
+```
+def after_outgoing_connection(
+        self,
+        source_parameter: Parameter,  # noqa: ARG002
+        target_node: Self,  # noqa: ARG002
+        target_parameter: Parameter,  # noqa: ARG002
+    ) -> None:
+        """Callback after a Connection has been established OUT of this Node."""
+        return
+
+```
+
+```
+def after_incoming_connection_removed(
+        self,
+        source_node: Self,  # noqa: ARG002
+        source_parameter: Parameter,  # noqa: ARG002
+        target_parameter: Parameter,  # noqa: ARG002
+    ) -> None:
+        """Callback after a Connection TO this Node was REMOVED."""
+        return
+```
+
+```
+def after_outgoing_connection_removed(
+        self,
+        source_parameter: Parameter,  # noqa: ARG002
+        target_node: Self,  # noqa: ARG002
+        target_parameter: Parameter,  # noqa: ARG002
+    ) -> None:
+        """Callback after a Connection OUT of this Node was REMOVED."""
+        return
+```
+
+## 🎨 Custom Widget Components
+
+Custom widgets allow you to create interactive UI components that go beyond standard input fields. Widgets are JavaScript modules that render custom interfaces in the Foundry Griptape editor.
+
+### When to Use Custom Widgets
+
+Consider creating a custom widget when you need:
+
+- **Interactive visualizations**: Color pickers, 3D angle selectors, graph editors
+- **Canvas-based editors**: Drawing tools, mask painting, image annotation
+- **Specialized input methods**: Custom sliders, multi-dimensional controls, visual editors
+- **Rich data editing**: JSON editors, table editors, complex nested structures
+
+### Widget Architecture
+
+A custom widget consists of three parts:
+
+1. **JavaScript Widget File**: The UI component (`.js` file in your library's `widgets/` directory)
+2. **Widget Registration**: Entry in your `griptape-nodes-library.json`
+3. **Node Integration**: Use the `Widget` trait on a parameter in your node
+
+### Creating a Widget
+
+Create a JavaScript file in your `widgets/` directory:
+
+```javascript
+// widgets/MyCustomWidget.js
+export default function MyCustomWidget(container, props) {
+  const { value, onChange, disabled } = props;
+
+  // Create your UI
+  const input = document.createElement('input');
+  input.value = value || '';
+  input.disabled = disabled;
+
+  // Handle user interaction
+  input.addEventListener('change', (e) => {
+    if (!disabled && onChange) {
+      onChange(e.target.value);
+    }
+  });
+
+  // Add to container
+  container.appendChild(input);
+
+  // Cleanup function (optional)
+  return () => {
+    input.removeEventListener('change', handleChange);
+  };
+}
+```
+
+### Widget Props
+
+Your widget function receives a `props` object with:
+
+- `value`: The current parameter value
+- `onChange`: Callback to update the value - call with the new value
+- `disabled`: Boolean indicating if the parameter is disabled
+
+### Registering Your Widget
+
+Add your widget to `griptape-nodes-library.json`:
+
+```json
+{
+  "widgets": [
+    {
+      "name": "MyCustomWidget",
+      "path": "your_library_name/widgets/MyCustomWidget.js",
+      "description": "Description of what your widget does"
+    }
+  ]
+}
+```
+
+### Using Widgets in Nodes
+
+Import the `Widget` trait and apply it to a parameter:
+
+```python
+from griptape_nodes.traits.widget import Widget
+
+class MyNode(DataNode):
+    def __init__(self, **kwargs: Any) -> None:
+        super().__init__(**kwargs)
+
+        self.add_parameter(
+            Parameter(
+                name="custom_input",
+                type="dict",  # or str, int, etc.
+                default_value={},
+                tooltip="Custom widget parameter",
+                allowed_modes={ParameterMode.INPUT, ParameterMode.PROPERTY},
+                traits={Widget(name="MyCustomWidget", library="Your Library Name")},
+            )
+        )
+```
+
+### Widget Best Practices
+
+**Event Isolation**: Prevent canvas drag interference by using `nodrag` and `nowheel` classes and `stopPropagation()`:
+
+```javascript
+element.className = 'nodrag nowheel';
+element.addEventListener('pointerdown', (e) => e.stopPropagation());
+```
+
+**State Management**: Always clone objects before passing to `onChange` to prevent shared references:
+
+```javascript
+// ✅ Good - clone the object
+onChange({ ...state });
+
+// ❌ Bad - passes internal reference
+onChange(state);
+```
+
+**Canvas Retina Scaling**: For canvas-based widgets, scale for high-DPI displays:
+
+```javascript
+const dpr = window.devicePixelRatio || 1;
+canvas.width = width * dpr;
+canvas.height = height * dpr;
+ctx.scale(dpr, dpr);
+```
+
+**Cleanup**: Return a cleanup function to remove event listeners and intervals:
+
+```javascript
+export default function MyWidget(container, props) {
+  // Setup code...
+
+  return () => {
+    // Cleanup: remove listeners, clear intervals, etc.
+    element.removeEventListener('click', handler);
+    clearInterval(intervalId);
+  };
+}
+```
+
+### Example Widgets
+
+This template includes two complete widget examples:
+
+- **[AnglePicker](example_nodes_template/widgets/AnglePicker.js)**: 3D rotation angle selector with interactive visualization
+- **[SimpleDrawingCanvas](example_nodes_template/widgets/SimpleDrawingCanvas.js)**: Canvas-based drawing tool with image annotation, retina scaling, and proper coordinate handling
+
+### Further Reading
+
+For comprehensive guidance on custom widgets, including advanced patterns and integration techniques, see the [Custom Widget Components Guide](https://docs.griptapenodes.com/en/latest/developing_nodes/comprehensive_guide/#custom-widget-components) in the official documentation.
+
+## 📋 Library Configuration
+
+### Update your library JSON file
+
+A `griptape-nodes-library.json` file already exists at the root of this repository. This configuration file defines your library metadata, dependencies, and nodes. It will be loaded by the Griptape Nodes engine at runtime.
+
+```
+{
+    "name": "<Your-Library-Name>",
+    "library_schema_version": "0.14.0",
+    "metadata": {
+        "author": "<Your-Name>",
+        "description": "<Your Description>",
+        "library_version": "0.1.0",
+        "engine_version": "0.103.0",
+        "tags": [
+            "Griptape",
+            "AI",
+            "<Your-Category>"
+        ],
+        "dependencies": {
+            "pip_dependencies": [
+                // Add any Python packages your nodes require
+                // "requests>=2.25.0",
+                // "pillow>=8.0.0"
+            ]
+        }
+    },
+    "settings": [
+        {
+            "description": "API keys required by nodes in this library",
+            "category": "app_events.on_app_initialization_complete",
+            "contents": {
+                "secrets_to_register": {
+                    // Add any API keys your nodes need, mapped to a default value
+                    // "YOUR_API_KEY": ""
+                }
+            }
+        }
+    ],
+    "categories": [
+        {
+            "<your-category-id>": {
+                "color": "border-blue-500",
+                "title": "<Your Category>",
+                "description": "<Category Description>",
+                "icon": "Folder"
+            }
+        }
+    ],
+    "nodes": [
+        {
+            "class_name": "<YourNodeName>",
+            "file_path": "<your-library-name>/<your-node-name>.py",
+            "metadata": {
+                "category": "<your-category-id>",
+                "description": "<Node Description>",
+                "display_name": "<Your Node Display Name>"
+            }
+        }
+    ]
+}
+```
+
+### Key Configuration Features
+
+#### Dependencies
+
+Add Python packages your nodes require in the `dependencies.pip_dependencies` array. The engine will automatically install these when loading your library.
+
+Heavy packages that only `process` needs (for example `torch` or `diffusers`) can go in `dependencies.pip_dependencies_exec` instead. The engine installs those into a separate environment used only where nodes execute, so keep `pip_dependencies` to what's needed to import your node modules.
+
+#### Secrets Management
+
+Use the `settings.secrets_to_register` object to automatically register API keys and secrets your nodes need. Users will be prompted to configure these in the Griptape Nodes settings.
+
+#### Categories
+
+Organize your nodes into logical categories with custom colors and icons. Use descriptive category IDs like `"image/processing"` or `"data/conversion"`.
+
+## 🛠️ Best Practices
+
+### Error Handling
+
+Raise `NodeError` when a node fails. The editor shows the node's name and your message, and anything you attach under **More info**.
+
+```python
+from griptape_nodes.exe_types.core_types import NodeError, NodeErrorLink
+
+raise NodeError(
+    "The prompt contains blocked words. Rephrase it and try again.",
+    links=[NodeErrorLink(label="Content policy", url="https://example.com/content-policy")],
+)
+```
+
+You can also attach `fields` (labelled values a user may quote to support, such as a status code or request ID), `links` (up to three pages that explain the fix), and `response` (the provider's response body, under 16 KB). All three are optional.
+
+```python
+raise NodeError(
+    "The prompt contains blocked words. Rephrase it and try again.",
+    fields={"status_code": 400, "request_id": "req_8f2c41d0"},
+    links=[NodeErrorLink(label="Content policy", url="https://example.com/content-policy")],
+    response={"error": {"code": "content_policy", "message": "The prompt contains blocked words."}},
+)
+```
+
+When you re-raise a caught exception, add `from e` so its traceback stays in the logs.
+
+Write the message for an artist:
+
+- Say which parameter is wrong, using the label the UI shows, and what to do next.
+- Don't start with the node's name. The editor shows it.
+- Don't paste a response or `repr()` into the message. Attach it as `response`.
+- Don't catch an exception just to re-raise it with a prefix. Let it propagate.
+
+See the [error handling guide](https://docs.griptapenodes.com/development/custom_nodes/error_handling/) for more.
+
+### Logging
+
+Use the standard Python logging module for debugging:
+
+```python
+import logging
+
+logger = logging.getLogger(__name__)
+
+def process(self) -> None:
+    logger.debug("Starting processing...")
+    # Your logic here
+    logger.info("Processing completed successfully")
+```
+
+### Input Validation
+
+Validate inputs before processing. Return one exception per problem, so the editor lists each on its own line:
+
+```python
+from urllib.parse import quote
+
+from griptape_nodes.exe_types.core_types import NodeError, NodeErrorLink
+
+def validate_before_node_run(self) -> list[Exception] | None:
+    errors = []
+
+    # Check required parameters
+    if not self.get_parameter_value("required_param"):
+        errors.append(NodeError("'Required Parameter' is empty. Enter a value."))
+
+    # Check API keys. A link starting with "#" opens a place in the editor: this one opens
+    # API Keys & Secrets filtered to the key.
+    if not os.getenv("YOUR_API_KEY"):
+        errors.append(
+            NodeError(
+                "YOUR_API_KEY is not set. Add it in Settings → API Keys & Secrets, then run the node again.",
+                links=[NodeErrorLink(label="Add the API key", url=f"#settings-secrets?filter={quote('YOUR_API_KEY')}")],
+            )
+        )
+
+    return errors if errors else None
+```
+
+### Modern Parameter Patterns
+
+Use traits and modern parameter features:
+
+```python
+from griptape_nodes.traits.file_system_picker import FileSystemPicker
+from griptape_nodes.traits.options import Options
+from griptape_nodes.traits.slider import Slider
+
+# File picker parameter
+Parameter(
+    name="input_file",
+    type="str",
+    tooltip="Select input file",
+    traits={FileSystemPicker(allow_files=True, file_types=[".txt", ".json"])}
+)
+
+# Dropdown options
+Parameter(
+    name="model_type",
+    type="str",
+    default_value="gpt-4",
+    tooltip="Select model type",
+    traits={Options(choices=["gpt-4", "gpt-3.5-turbo", "claude-3"])}
+)
+
+# Slider for numeric values
+Parameter(
+    name="temperature",
+    type="float",
+    default_value=0.7,
+    tooltip="Creativity level (0.0-2.0)",
+    traits={Slider(min_val=0.0, max_val=2.0)}
+)
+```
+
+### Secrets Management
+
+Use the SecretsManager for API keys:
+
+```python
+from urllib.parse import quote
+
+from griptape_nodes.exe_types.core_types import NodeError, NodeErrorLink
+from griptape_nodes.retained_mode.griptape_nodes import GriptapeNodes
+
+class MyNode(DataNode):
+    API_KEY_NAME = "MY_SERVICE_API_KEY"
+
+    def _validate_api_key(self) -> str:
+        api_key = GriptapeNodes.SecretsManager().get_secret(self.API_KEY_NAME)
+        if not api_key:
+            raise NodeError(
+                f"{self.API_KEY_NAME} is not set. Add it in Settings → API Keys & Secrets, then run the node again.",
+                links=[NodeErrorLink(label="Add the API key", url=f"#settings-secrets?filter={quote(self.API_KEY_NAME)}")],
+            )
+        return api_key
+```
+
+### Import Best Practices
+
+Always import dependencies at module level:
+
+```python
+# ✅ Good - Module level imports
+from PIL import Image
+from io import BytesIO
+import requests
+
+# ❌ Bad - Lazy imports inside functions
+def process(self):
+    from PIL import Image  # Don't do this
+```
+
+### Dynamic Parameter Visibility
+
+Create context-aware UIs:
+
+```python
+def after_value_set(self, parameter: Parameter, value: Any) -> None:
+    if parameter.name == "mode":
+        if value == "advanced":
+            self.show_parameter_by_name("advanced_options")
+        else:
+            self.hide_parameter_by_name("advanced_options")
+    return super().after_value_set(parameter, value)
+```
+
+### Strict Mode Example Nodes
+
+Strict mode names node code that behaves differently when the node runs in a worker. The rules below warn in the engine's own process. In a worker, the first two fail the run. The third warns when you edit the node, because a worker's copy never runs the hook that would report it there. The `StrictModeNodes` category has a pair of nodes for each of three rules: one that breaks it, and one that does the same job the right way. The warnings appear in the engine log.
+
+| Rule | Breaks Rule | How to see it | Follows Rule |
+| --- | --- | --- | --- |
+| `graph-access-while-loading` | [Asks about its connections in `before_value_set`](example_nodes_template/graph_access_while_loading_breaks_rule.py) | Set Text, then copy and paste the node or reopen the workflow | [Asks in `after_value_set`, which loading skips](example_nodes_template/graph_access_while_loading_follows_rule.py) |
+| `state-read-bypassing-requests` | [Reads a setting from `GriptapeNodes.ConfigManager()`](example_nodes_template/state_read_bypassing_requests_breaks_rule.py) | Run the node | [Sends a `GetConfigValueRequest`](example_nodes_template/state_read_bypassing_requests_follows_rule.py) |
+| `state-outside-parameters` | [Keeps the word count of Text in an attribute set by `after_value_set`](example_nodes_template/state_outside_parameters_breaks_rule.py) | Edit Text. A pasted copy, a reopened workflow, or a worker run then reports a Word Count of 0 | [Keeps it in a hidden parameter](example_nodes_template/state_outside_parameters_follows_rule.py) |
+
+An attribute that nothing running the node reads can stay an attribute: list it in `attributes_outside_parameters` on the class. See the [strict mode reference](https://docs.griptapenodes.com/development/custom_nodes/strict_mode/) for every rule.
+
+`tests/test_strict_mode_nodes.py` checks each pair. Run it with `uv run pytest`. The rule checks skip on an engine without these rules.
+
+### Success/Failure Node Pattern
+
+For operations that can fail, use SuccessFailureNode:
+
+```python
+from griptape_nodes.exe_types.node_types import SuccessFailureNode
+
+class MyProcessingNode(SuccessFailureNode):
+    def __init__(self, **kwargs) -> None:
+        super().__init__(**kwargs)
+
+        # Add status parameters
+        self._create_status_parameters(
+            result_details_tooltip="Details about the operation result",
+            result_details_placeholder="Operation details will appear here.",
+        )
+
+    def process(self) -> None:
+        self._clear_execution_status()
+
+        try:
+            # Your processing logic
+            result = self.do_processing()
+            self.parameter_output_values["output"] = result
+
+            # Success
+            self._set_status_results(
+                was_successful=True,
+                result_details="SUCCESS: Operation completed"
+            )
+        except Exception as e:
+            # Failure
+            self._set_status_results(
+                was_successful=False,
+                result_details=f"FAILURE: {str(e)}"
+            )
+            self._handle_failure_exception(e)
+```
+
+`_handle_failure_exception` follows the **Failed** output if one is connected, and raises the exception otherwise. Every failure path needs it, including failures you detect yourself, not only caught exceptions. Setting the status and returning leaves a node that ends quietly, with nothing in the error panel, when **Failed** isn't connected:
+
+```python
+if not source_path:
+    error = NodeError("Connect a file to 'Source'.")
+    self._set_status_results(was_successful=False, result_details=str(error))
+    self._handle_failure_exception(error)
+    return
+```
+
+- Call `_set_status_results` before `_handle_failure_exception`, and `return` after it.
+- Don't `raise` again after it, or a connected **Failed** output can't catch the failure.
+- Only fail on the run path. Never raise from `after_value_set`, button callbacks, or previews.
+
+### Asynchronous Processing
+
+For long-running operations, use the async pattern:
+
+```python
+from griptape_nodes.exe_types.node_types import AsyncResult
+
+class MyAsyncNode(DataNode):
+    def process(self) -> AsyncResult[None]:
+        yield lambda: self._process()
+
+    def _process(self) -> None:
+        # Long-running operation
+        result = self.perform_long_operation()
+        self.parameter_output_values["output"] = result
+```
+
+### ParameterList for Multiple Inputs
+
+Accept multiple inputs of the same type:
+
+```python
+from griptape_nodes.exe_types.core_types import ParameterList
+
+self.add_parameter(
+    ParameterList(
+        name="images",
+        input_types=["ImageArtifact", "ImageUrlArtifact", "list[ImageArtifact]"],
+        default_value=[],
+        tooltip="Multiple image inputs",
+        allowed_modes={ParameterMode.INPUT},
+    )
+)
+
+# In process method
+images = self.get_parameter_list_value("images")  # Always returns list
+```
+
+## 📦 Installation
+
+### Prerequisites
+
+- [Griptape Nodes](https://github.com/griptape-ai/griptape-nodes) installed and running
+- Your custom node library created following the steps above
+
+### Install the Library
+
+1. **Download the library files** to your Griptape Nodes libraries directory:
+
+   ```bash
+   # Navigate to your Griptape Nodes libraries directory
+   cd `gtn config show workspace_directory`
+
+   # Clone or download your library
+   git clone https://github.com/your-username/your-library-name.git
+   ```
+
+2. **Add the library** in the Griptape Nodes Editor:
+
+   - Open the Settings menu and navigate to the _Libraries_ settings
+   - Click on _+ Add Library_ at the bottom of the settings panel
+   - Enter the path to the library JSON file: **your Griptape Nodes Workspace directory**`/your-library-name/griptape-nodes-library.json`
+   - You can check your workspace directory with `gtn config show workspace_directory`
+   - Close the Settings Panel
+   - Click on _Refresh Libraries_
+
+3. **Verify installation** by checking that your custom nodes appear in the Griptape Nodes interface in your defined category.
+
+## 🎯 Example Usage
+
+### Here is an example flow that you could make with the provided nodes:
+
+![Example Flow](./images/example_flow.png)
+
+## 🔍 Troubleshooting
+
+### Common Issues
+
+#### Library Not Appearing
+
+- Verify the JSON file path is correct
+- Check that the JSON syntax is valid (no trailing commas, proper quotes)
+- Ensure the library was refreshed after adding
+
+#### Node Import Errors
+
+- Check that all required dependencies are listed in the JSON
+- Verify Python file paths are correct relative to the JSON file
+- Ensure class names match exactly between Python files and JSON
+
+#### Missing API Keys
+
+- Configure secrets in Settings > API Keys & Secrets
+- Use the exact key names specified in `secrets_to_register`
+- Restart Griptape Nodes after adding new secrets
+
+## 📚 Additional Resources
+
+### Documentation
+
+- [Griptape Nodes Documentation](https://github.com/griptape-ai/griptape-nodes)
+- [Griptape Framework](https://github.com/griptape-ai/griptape)
+- [Node Development Examples](example_nodes_template/)
+
+### Community
+
+- [Griptape Discord](https://discord.gg/griptape)
+- [GitHub Discussions](https://github.com/griptape-ai/griptape-nodes/discussions)
+
+### Example Libraries
+
+- [Griptape Nodes Directory](https://github.com/griptape-ai/griptape-nodes-directory)
+
+## 📄 License
+
+This template is provided under the Apache License 2.0. Your custom library can use any license you choose.
+
+---
+
+Happy building! 🚀
